@@ -21,7 +21,7 @@ import argparse
 
 
 def load_ImageNet(BATCH_SIZE=64):
-    path = '../IamgeNet'
+    path = '../ImageNet'
 
     # train_datagen = ImageDataGenerator(rotation_range=30,
     #                                    brightness_range=[0.3, 0.7],
@@ -36,10 +36,10 @@ def load_ImageNet(BATCH_SIZE=64):
     #                                                     class_mode='categorical', target_size=(224, 224),
     #                                                     shuffle=True, seed=101)
 
-    valid_generator = valid_datagen.flow_from_directory(path + 'val/', batch_size=BATCH_SIZE, color_mode='rgb',
+    valid_generator = valid_datagen.flow_from_directory(path, batch_size=BATCH_SIZE, color_mode='rgb',
                                                         class_mode='categorical', target_size=(224, 224), shuffle=True,
                                                         subset='training')
-    test_generator = valid_datagen.flow_from_directory(path + 'val/', batch_size=BATCH_SIZE, color_mode='rgb',
+    test_generator = valid_datagen.flow_from_directory(path, batch_size=BATCH_SIZE, color_mode='rgb',
                                                        class_mode='categorical', target_size=(224, 224), shuffle=False,
                                                        subset='validation')
     return valid_generator, test_generator
