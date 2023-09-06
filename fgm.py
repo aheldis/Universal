@@ -21,7 +21,7 @@ import argparse
 
 
 def load_ImageNet(BATCH_SIZE=64):
-    path = '/research/dataset/ImageNet/ILSVRC2012/'
+    path = '../IamgeNet'
 
     # train_datagen = ImageDataGenerator(rotation_range=30,
     #                                    brightness_range=[0.3, 0.7],
@@ -49,7 +49,7 @@ def get_model(model_name="VGG16", dataset="ImageNet"):
     if dataset == "ImageNet" or dataset == "Tiny ImageNet":
         input_shape = (224, 224, 3)
     if model_name == "VGG16":
-        model = keras.models.load_model("../pretrained_models/ImageNet/vgg_16.h5")
+        model = keras.models.load_model("../vgg_16.h5")
     elif model_name == "MobileNet":
         model = MobileNet(include_top=True, input_shape=input_shape, weights='imagenet')
     return model
@@ -128,7 +128,7 @@ def attack(model, test_generator, epsilon, dataset="ImageNet"):
         explainer = SimpleGradients()
 
     save_path = '../perturbations/VGG16_ImageNet_NEW/' + args.attack_type + '/'
-    deltas_file = open(save_path + 'deltas_' + str(alpha) + '.npy', 'wb')
+    deltas_file = open(save_path + 'deltas_' + str(alpha) + '_without_power.npy', 'wb')
 
     if dataset == "ImageNet" or dataset == "Tiny ImageNet":
         mean, std = 0, 1
@@ -165,7 +165,8 @@ def attack(model, test_generator, epsilon, dataset="ImageNet"):
                 with tf.GradientTape() as tape:
                     tape.watch(X_p_tensor)
                     I_p = explainer.explain(X_p_tensor, model, gt_class)
-                    dissimilarity = tf.math.square(tf.norm(I[0] - I_p[0], ord=2))
+                    # dissimilarity = tf.math.square(tf.norm(I[0] - I_p[0], ord=2))
+                    dissimilarity = tf.norm(I[0] - I_p[0], ord=2)
                     grad = tape.gradient(dissimilarity, X_p_tensor)[0].numpy()
 
                 if np.linalg.norm(grad) == 0:
@@ -208,7 +209,7 @@ def main():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--epsilon', type=int)
-    parser.add_argument('--attack_type', type=str, default='integrated')
+    parser.add_argument('--attack_type', type=str, default='simple')
     args = parser.parse_args()
 
     main()

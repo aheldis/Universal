@@ -84,7 +84,7 @@ def new_svd(perturb_path, i_perturb_path, save_path):
     x, v = random_sample(path=perturb_path, i_path=i_perturb_path, num_deltas=num_deltas, num_samples=num_deltas)
     num_k = 100
     u, s, vT = svds(x, k=num_k)
-    path = save_path + 'UPI_PCA_' + args.epsilon + '.npy'
+    path = save_path + 'UPI_PCA_' + args.epsilon + '_without_power.npy'
     universal_file = open(path, 'wb')
     np.save(universal_file, vT[-1].reshape((224*224*3, 1)))
 
@@ -112,9 +112,9 @@ if __name__ == '__main__':
     parser.add_argument('--epsilon', type=str)
     args = parser.parse_args()
 
-    path = '../perturbations/VGG16_ImageNet_NEW/'
+    path = ''
     # get_num_deltas(path + 'deltas_' + args.epsilon + '.npy')
-    svd(path + 'simple/deltas_' + args.epsilon + '.npy', path + 'deltas_' + args.epsilon + '.npy',
-        path + 'simple/')
-    # new_svd(path + 'simple/deltas_' + args.epsilon + '.npy', path + 'deltas_' + args.epsilon + '.npy',
-    #          path + 'simple/')
+    # svd(path + 'simple/deltas_' + args.epsilon + '.npy', path + 'deltas_' + args.epsilon + '.npy',
+    #     path + 'simple/')
+    new_svd(path + 'simple/deltas_' + args.epsilon + '.npy', path + 'deltas_' + args.epsilon + '.npy',
+             path + 'simple/')
