@@ -52,7 +52,7 @@ def get_model(model_name="VGG16", dataset="ImageNet"):
         input_shape = (224, 224, 3)
     if model_name == "VGG16":
         # model = keras.models.load_model("../vgg_16.h5")
-        model = VGG16(weights="imagenet")
+        model = VGG16(include_top=True, input_shape=input_shape, weights="imagenet")
         # opt = tf.keras.optimizers.Adam(learning_rate=0.00001)
         # model.trainable = False
         # model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
