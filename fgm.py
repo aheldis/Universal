@@ -18,6 +18,8 @@ from tf_explain.callbacks.integrated_gradients import IntegratedGradients
 import random
 from scipy.sparse.linalg import svds
 import argparse
+from keras.applications.vgg16 import VGG16, preprocess_input
+import tensorflow as tf
 
 
 def load_ImageNet(BATCH_SIZE=64):
@@ -49,7 +51,11 @@ def get_model(model_name="VGG16", dataset="ImageNet"):
     if dataset == "ImageNet" or dataset == "Tiny ImageNet":
         input_shape = (224, 224, 3)
     if model_name == "VGG16":
-        model = keras.models.load_model("../vgg_16.h5")
+        # model = keras.models.load_model("../vgg_16.h5")
+        model = VGG16(weights="imagenet")
+        # opt = tf.keras.optimizers.Adam(learning_rate=0.00001)
+        # model.trainable = False
+        # model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
     elif model_name == "MobileNet":
         model = MobileNet(include_top=True, input_shape=input_shape, weights='imagenet')
     return model
