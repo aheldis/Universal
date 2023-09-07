@@ -39,7 +39,7 @@ def evaluate(model, test_generator, grad_method, path, perturbation_type=None, M
         delta = delta * alpha
         delta /= std
     elif perturbation_type == 'upi_pca_fgm':
-        universal_file = open(path + grad_method + '/UPI_PCA_' + str(alpha) + '_without_power.npy', 'rb')
+        universal_file = open(path + grad_method + '_UPI_PCA_' + str(alpha) + '_without_power.npy', 'rb')
         delta = np.load(universal_file)
         print(delta)
         delta /= np.linalg.norm(delta.flatten(), ord)

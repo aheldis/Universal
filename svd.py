@@ -116,5 +116,5 @@ if __name__ == '__main__':
     # get_num_deltas(path + 'deltas_' + args.epsilon + '.npy')
     # svd(path + 'simple/deltas_' + args.epsilon + '.npy', path + 'deltas_' + args.epsilon + '.npy',
     #     path + 'simple/')
-    new_svd(path + 'simple/deltas_' + args.epsilon + '.npy', path + 'deltas_' + args.epsilon + '.npy',
-             path + 'simple/')
+    new_svd(path + 'simple_deltas_' + args.epsilon + '.npy', path + 'deltas_' + args.epsilon + '.npy',
+             path + 'simple_')

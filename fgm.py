@@ -133,7 +133,7 @@ def attack(model, test_generator, epsilon, dataset="ImageNet"):
     elif args.attack_type == 'simple':
         explainer = SimpleGradients()
 
-    save_path = '../perturbations/VGG16_ImageNet_NEW/' + args.attack_type + '/'
+    save_path = args.attack_type + '_'
     deltas_file = open(save_path + 'deltas_' + str(alpha) + '_without_power.npy', 'wb')
 
     if dataset == "ImageNet" or dataset == "Tiny ImageNet":
