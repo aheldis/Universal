@@ -3,61 +3,168 @@ import keras
 from keras import Sequential
 from keras.layers import Dense, Conv2D, Dropout, Flatten, MaxPooling2D, BatchNormalization, Activation
 from keras.applications.vgg16 import VGG16, preprocess_input
+from keras.applications.xception import Xception, preprocess_input
+from keras.applications.resnet import ResNet50, preprocess_input
+from keras.applications.inception_v3 import InceptionV3, preprocess_input
+from keras.applications.mobilenet import MobileNet, preprocess_input
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
+from tensorflow.keras.models import Model
+from tensorflow.keras import optimizers
+
 import time
 import scipy.ndimage as nd
 import numpy as np
 from keras.preprocessing.image import ImageDataGenerator
 import glob as glob
 import os
-from livelossplot.inputs.keras import PlotLossesCallback
-from keras.callbacks import ModelCheckpoint, EarlyStopping
+# from livelossplot.inputs.keras import PlotLossesCallback
+from keras.callbacks import ModelCheckpoint, EarlyStopping, LearningRateScheduler
 import pandas as pd
 from keras_contrib.callbacks import CyclicLR
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from tf_explain.callbacks.integrated_gradients import IntegratedGradients
 import random
 from scipy.sparse.linalg import svds
 import argparse
-from keras.applications.vgg16 import VGG16, preprocess_input
 import tensorflow as tf
 
 
 def load_ImageNet(BATCH_SIZE=64):
-    path = '../ImageNet'
+    path = '/data/ImageNet/val'
+    target_size = (224, 224)
+    # target_size = (299, 299)
 
-    # train_datagen = ImageDataGenerator(rotation_range=30,
-    #                                    brightness_range=[0.3, 0.7],
-    #                                    width_shift_range=0.2,
-    #                                    height_shift_range=0.2,
-    #                                    horizontal_flip=True,
-    #                                    preprocessing_function=preprocess_input)
+    train_datagen = ImageDataGenerator(rotation_range=30,
+                                       brightness_range=[0.3, 0.7],
+                                       width_shift_range=0.2,
+                                       height_shift_range=0.2,
+                                       horizontal_flip=True,
+                                       preprocessing_function=preprocess_input)
 
     valid_datagen = ImageDataGenerator(validation_split=0.5,
                                        preprocessing_function=preprocess_input)
-    # train_generator = train_datagen.flow_from_directory(path + 'train/', batch_size=BATCH_SIZE, color_mode='rgb',
-    #                                                     class_mode='categorical', target_size=(224, 224),
-    #                                                     shuffle=True, seed=101)
+    train_generator = train_datagen.flow_from_directory(path + 'train/', batch_size=BATCH_SIZE, color_mode='rgb',
+                                                        class_mode='categorical', target_size=(224, 224),
+                                                        shuffle=True, seed=101)
 
     valid_generator = valid_datagen.flow_from_directory(path, batch_size=BATCH_SIZE, color_mode='rgb',
-                                                        class_mode='categorical', target_size=(224, 224), shuffle=True,
+                                                        class_mode='categorical', target_size=target_size, shuffle=True,
                                                         subset='training')
     test_generator = valid_datagen.flow_from_directory(path, batch_size=BATCH_SIZE, color_mode='rgb',
-                                                       class_mode='categorical', target_size=(224, 224), shuffle=False,
+                                                       class_mode='categorical', target_size=target_size, shuffle=False,
                                                        subset='validation')
-    return valid_generator, test_generator
+    return train_generator, valid_generator, test_generator
 
 
-def get_model(model_name="VGG16", dataset="ImageNet"):
-    if dataset == "ImageNet" or dataset == "Tiny ImageNet":
-        input_shape = (224, 224, 3)
+def normalize(X_train, X_test):
+    mean = np.mean(X_train, axis=(0, 1, 2, 3))
+    std = np.std(X_train, axis=(0, 1, 2, 3))
+    X_train = (X_train - mean) / (std + 1e-7)
+    X_test = (X_test - mean) / (std + 1e-7)
+    print(mean, std)
+    return X_train, X_test
+
+
+def load_CIFAR_10(BATCH_SIZE=64):
+    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
+    x_train = x_train.astype('float32')
+    x_test = x_test.astype('float32')
+    x_train, x_test = normalize(x_train, x_test)
+
+    # y_train = keras.utils.np_utils.to_categorical(y_train, 10)
+    # y_test = keras.utils.np_utils.to_categorical(y_test, 10)
+
+    # data augmentation
+    train_datagen = ImageDataGenerator(
+        featurewise_center=False,  # set input mean to 0 over the dataset
+        samplewise_center=False,  # set each sample mean to 0
+        featurewise_std_normalization=False,  # divide inputs by std of the dataset
+        samplewise_std_normalization=False,  # divide each input by its std
+        zca_whitening=False,  # apply ZCA whitening
+        rotation_range=15,  # randomly rotate images in the range (degrees, 0 to 180)
+        width_shift_range=0.1,  # randomly shift images horizontally (fraction of total width)
+        height_shift_range=0.1,  # randomly shift images vertically (fraction of total height)
+        horizontal_flip=True,  # randomly flip images
+        vertical_flip=False)  # randomly flip images
+    # (std, mean, and principal components if ZCA whitening is applied).
+    train_datagen.fit(x_train)
+
+    test_datagen = ImageDataGenerator()
+    test_datagen.fit(x_test[:5000])
+
+    valid_datagen = ImageDataGenerator()
+    valid_datagen.fit(x_test[5000:])
+    train_datagen = ImageDataGenerator(rotation_range=30,
+                                       brightness_range=[0.3, 0.7],
+                                       width_shift_range=0.2,
+                                       height_shift_range=0.2,
+                                       horizontal_flip=True,
+                                       preprocessing_function=preprocess_input)
+
+    valid_datagen = ImageDataGenerator(validation_split=0.5,
+                                       preprocessing_function=preprocess_input)
+    train_generator = train_datagen.flow(x_train, y_train, batch_size=BATCH_SIZE, shuffle=True, seed=101)
+    valid_generator = valid_datagen.flow(x_test[:5000], y_test[:5000], batch_size=BATCH_SIZE, shuffle=True, seed=101)
+    test_generator = test_datagen.flow(x_test[5000:], y_test[5000:], batch_size=BATCH_SIZE, shuffle=False)
+    return train_generator, valid_generator, test_generator
+
+
+def get_model(model_name="InceptionV3", dataset="ImageNet"):
     if model_name == "VGG16":
         # model = keras.models.load_model("../vgg_16.h5")
-        model = VGG16(include_top=True, input_shape=input_shape, weights="imagenet")
+        if dataset == "ImageNet":
+            input_shape = (224, 224, 3)
+        elif dataset == "CIFAR-10":
+            input_shape = (32, 32, 3)
+        model = VGG16(include_top=dataset == "ImageNet", input_shape=input_shape, weights="imagenet")
         # opt = tf.keras.optimizers.Adam(learning_rate=0.00001)
         # model.trainable = False
         # model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
+    elif model_name == "Xception":
+        if dataset == "ImageNet":
+            input_shape = (299, 299, 3)
+        elif dataset == "CIFAR-10":
+            input_shape = (32, 32, 3)
+        model = Xception(include_top=dataset == "ImageNet", input_shape=input_shape, weights="imagenet")
+    elif model_name == "ResNet50":
+        if dataset == "ImageNet":
+            input_shape = (224, 224, 3)
+        elif dataset == "CIFAR-10":
+            input_shape = (32, 32, 3)
+        model = ResNet50(include_top=dataset == "ImageNet", input_shape=input_shape, weights="imagenet")
+    elif model_name == "InceptionV3":
+        if dataset == "ImageNet":
+            input_shape = (299, 299, 3)
+        elif dataset == "CIFAR-10":
+            input_shape = (32, 32, 3)
+        model = InceptionV3(include_top=dataset == "ImageNet", input_shape=input_shape, weights="imagenet")
     elif model_name == "MobileNet":
-        model = MobileNet(include_top=True, input_shape=input_shape, weights='imagenet')
+        if dataset == "ImageNet":
+            input_shape = (224, 224, 3)
+        elif dataset == "CIFAR-10":
+            input_shape = (32, 32, 3)
+        model = MobileNet(include_top=dataset == "ImageNet", input_shape=input_shape, weights='imagenet')
+
+    if dataset == "CIFAR-10":
+        prev_model = model
+        model = Sequential()
+
+        for layer in prev_model.layers:
+            model.add(layer)
+
+        model.add(Flatten(input_shape=(2, 2, 512)))
+
+        model.add(Dense(512, activation='relu', name='FC1'))
+        model.add(BatchNormalization())
+        model.add(Dropout(0.4))
+
+        model.add(Dense(512, activation='relu', name='FC2'))
+        model.add(BatchNormalization())
+        model.add(Dropout(0.4))
+
+        # model.add(Dense(200, activation='softmax', name='FC3'))
+        model.add(Dense(200, name='FC3'))
+        model.add(Activation('softmax'))
     return model
 
 
@@ -123,7 +230,7 @@ class SimpleGradients(IntegratedGradients):
         return normalized_gradients
 
 
-def attack(model, test_generator, epsilon, dataset="ImageNet"):
+def attack(model, test_generator, epsilon, dataset="ImageNet", path='/data/ImageNet/VGG16_'):
     p_range = 1
     alpha = epsilon
     if args.attack_type == 'integrated':
@@ -133,12 +240,14 @@ def attack(model, test_generator, epsilon, dataset="ImageNet"):
     elif args.attack_type == 'simple':
         explainer = SimpleGradients()
 
-    save_path = args.attack_type + '_'
+    save_path = path + args.attack_type + '_'
     deltas_file = open(save_path + 'deltas_' + str(alpha) + '_without_power.npy', 'wb')
 
     if dataset == "ImageNet" or dataset == "Tiny ImageNet":
         mean, std = 0, 1
         mean_image = np.zeros((224, 224, 3))
+        # mean_image = np.zeros((299, 299, 3))
+
         mean_image[:, :, 0] = 103.939
         mean_image[:, :, 1] = 116.779
         mean_image[:, :, 2] = 123.68
@@ -154,6 +263,7 @@ def attack(model, test_generator, epsilon, dataset="ImageNet"):
 
         for idx in range(len(Xs)):
             X, y = Xs[idx], ys[idx]
+            print(X)
             X_p = X.copy()
             max_d, max_xp, max_p = -np.inf, X_p, 0
             gt_class = np.where(y == 1)[0][0]
@@ -200,22 +310,51 @@ def attack(model, test_generator, epsilon, dataset="ImageNet"):
             num += 1
 
 
-def main():
-    model = get_model(model_name="VGG16")
-    val_generator, test_generator = load_ImageNet()
+def train_CIFAR_10(model_name, model, train_generator, valid_generator, BATCH_SIZE=64):
+    model.trainable = True
+    # sgd = optimizers.SGD(lr=0.0000001, momentum=0.9)
+    n_steps = 50000 // BATCH_SIZE
+    n_val_steps = 5000 // BATCH_SIZE
+    # plot_loss = PlotLossesCallback()
+    opt = tf.keras.optimizers.Adam(learning_rate=0.000005)
+    model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
+
+    checkpoint = ModelCheckpoint('checkpoint.h5', monitor='val_accuracy', verbose=1, save_best_only=True,
+                                 save_weights_only=False, mode='auto')
+    cyclic = CyclicLR(base_lr=0.000005, max_lr=0.00006, step_size=1200., mode='triangular2')
+    early = EarlyStopping(monitor='val_accuracy', patience=4, verbose=1, mode='auto')
+    model.fit(train_generator, batch_size=BATCH_SIZE, steps_per_epoch=n_steps, validation_data=valid_generator,
+              validation_steps=n_val_steps, epochs=50, callbacks=[checkpoint,cyclic,early], shuffle=True)
+
+    model.save(model_name + '_CIFAR_10_final.h5')
+
+
+def main(args):
+    model = get_model(model_name=args.model, dataset=args.dataset)
+    if args.dataset == 'ImageNet':
+        train_generator, val_generator, test_generator = load_ImageNet(BATCH_SIZE=args.batch_size)
+    elif args.dataset == 'CIFAR-10':
+        train_generator, val_generator, test_generator = load_CIFAR_10(BATCH_SIZE=args.batch_size)
+
+        ######## train
+        train_CIFAR_10("VGG16", model, train_generator, val_generator)
+
 
     ######## eval
     # (eval_loss, eval_accuracy) = model.evaluate(test_generator, batch_size=64, verbose=1)
     # print("eval_loss:", eval_loss, "eval_accuracy:", eval_accuracy)
 
     ######## attack
-    attack(model, val_generator, args.epsilon)
+    # attack(model, val_generator, args.epsilon)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--epsilon', type=int)
     parser.add_argument('--attack_type', type=str, default='simple')
+    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--dataset', type=str, default='CIFAR-10')
+    parser.add_argument('--model', type=str, default='VGG16')
     args = parser.parse_args()
 
-    main()
+    main(args)
